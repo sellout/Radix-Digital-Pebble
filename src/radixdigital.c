@@ -13,37 +13,30 @@ PBL_APP_INFO(MY_UUID,
              DEFAULT_MENU_ICON,
              APP_INFO_WATCH_FACE);
 
+#define NUM_COLUMNS 4
+
 Window window;
 TextLayer blank_layer;
-TextLayer year_layer;
-TextLayer day_layer;
-TextLayer subday_layer;
+TextLayer year_layer[NUM_COLUMNS];
+TextLayer day_layer[NUM_COLUMNS];
+TextLayer subday_layer[NUM_COLUMNS];
 
-static char year_str[5];
-static char day_str[5];
-static char subday_str[5];
+char year_str[NUM_COLUMNS][2];
+char day_str[NUM_COLUMNS][2];
+char subday_str[NUM_COLUMNS][2];
 
 PblTm *now;
 
-int int_to_base_string(unsigned int base, int x, char *buffer, unsigned int pad) {
-    buffer[0] = '\0';
-
-    while (x > 0) {
-        int i = x % base;
-        size_t len = strlen(buffer);
-        buffer[len] = i < 10 ? i + '0' : (i - 10) + 'a';
-        buffer[++len] = '\0';
-
-        x = x / base;                
+int int_to_base_string(unsigned int base, int x, char str[][2], TextLayer *layer, int last_index, bool pad) {
+    for (; x > 0; x /= base, --last_index) {
+        unsigned int i = x % base;
+        str[last_index][0] = (char)(i < 10 ? i + '0' : (i - 10) + 'a');
+        str[last_index][1] = '\0';
+        text_layer_set_text(&layer[last_index], str[last_index]);
     }
 
-    while (strlen(buffer) < pad) strcat(buffer, "0");
-
-    char t, *e = buffer + strlen(buffer);
-    while (--e > buffer) {
-        t = *buffer;
-        *buffer++ = *e;
-        *e = t;
+    for (; last_index >= 0; --last_index) {
+        text_layer_set_text(&layer[last_index], pad ? "0" : "");
     }
 
     return 0;
@@ -51,15 +44,12 @@ int int_to_base_string(unsigned int base, int x, char *buffer, unsigned int pad)
 
 void draw_year(TextLayer *me) {
     int year = now->tm_year + 1900;
-    int_to_base_string(base, year, year_str, 0);
-    text_layer_set_text(me, year_str);
+    int_to_base_string(base, year, year_str, me, 3, false);
 }
 
 void draw_day(TextLayer *me) {
     int day = now->tm_yday;
-    int_to_base_string(base, day, day_str, 0);
-    strcat(day_str, ".");
-    text_layer_set_text(me, day_str);
+    int_to_base_string(base, day, day_str, me, 2, false);
 }
 
 unsigned int const seconds_in_day = 86400;
@@ -68,9 +58,7 @@ unsigned int ticks_in_day;
 void draw_subday(TextLayer *me) {
     unsigned int seconds_into_day = ((now->tm_hour * 60 + now->tm_min) * 60 + now->tm_sec);
     unsigned int subday = (seconds_into_day * ticks_in_day) / seconds_in_day;
-    // 4.16666 // number of seconds in a day (86400) divided by number of sub-milli ticks in a day (20736)
-    int_to_base_string(base, subday, subday_str, 4);
-    text_layer_set_text(me, subday_str);
+    int_to_base_string(base, subday, subday_str, subday_layer, 3, true);
 }
 
 void init_time_layer(TextLayer *layer, GRect frame, bool dark) {
@@ -78,8 +66,7 @@ void init_time_layer(TextLayer *layer, GRect frame, bool dark) {
     text_layer_init(layer, frame);
     text_layer_set_background_color(layer, GColorClear);
     text_layer_set_font(layer, font);
-    text_layer_set_overflow_mode(layer, 2);
-    text_layer_set_text_alignment(layer, GTextAlignmentRight);
+    text_layer_set_text_alignment(layer, GTextAlignmentCenter);
     text_layer_set_text_color(layer, dark ? GColorWhite : GColorBlack);
     layer_add_child (&window.layer, &layer->layer);
 }
@@ -97,23 +84,33 @@ void handle_init(AppContextRef ctx) {
     text_layer_set_background_color(&blank_layer, GColorWhite);
     layer_add_child (&window.layer, &blank_layer.layer);
 
-
-    init_time_layer(&year_layer,
-                    GRect(0, -10, r.size.w, section_height + 10),
-                    false);
-    init_time_layer(&day_layer,
-                    GRect(0, section_height - 10, r.size.w, section_height + 10),
-                    true);
-    init_time_layer(&subday_layer,
-                    GRect(0, section_height * 2 - 10, r.size.w, section_height + 10),
-                    true);
+    int text_offset = 10;
+    int zero_width = 30;
+    
+    for (size_t i = 0; i < NUM_COLUMNS; ++i) {
+        init_time_layer(&year_layer[i],
+                        GRect(r.size.w - zero_width * (4 - i), - text_offset, zero_width, section_height + text_offset),
+                        false);
+    }
+    for (size_t i = 0; i < NUM_COLUMNS; ++i) {
+        init_time_layer(&day_layer[i],
+                        GRect(r.size.w - zero_width * (4 - i), section_height - text_offset, zero_width, section_height + text_offset),
+                        true);
+    }
+    for (size_t i = 0; i < NUM_COLUMNS; ++i) {
+        init_time_layer(&subday_layer[i],
+                        GRect(r.size.w - zero_width * (4 - i), section_height * 2 - text_offset, zero_width, section_height + text_offset),
+                        true);
+    }
+    
+    text_layer_set_text(&day_layer[3], ".");
 }
 
 static void handle_second_tick (AppContextRef ctx, PebbleTickEvent *t) {
     now = t->tick_time;
-    draw_year(&year_layer);
-    draw_day(&day_layer);
-    draw_subday(&subday_layer);
+    draw_year(year_layer);
+    draw_day(day_layer);
+    draw_subday(subday_layer);
 }
 
 void pbl_main(void *params) {

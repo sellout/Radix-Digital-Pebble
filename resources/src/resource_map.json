@@ -1,0 +1,11 @@
+
+{"friendlyVersion": "VERSION",
+ "versionDefName": "RADIX_RESOURCES",
+ "media": [
+	   {
+	    "type":"font",
+	    "defName":"51",
+	    "file":"Hoefler_Text.ttc"
+	   }
+	  ]
+}

@@ -29,25 +29,11 @@ int int_to_base_string(unsigned int base, int x, char *buffer, unsigned int pad)
     buffer[0] = '\0';
 
     while (x > 0) {
-        // shorten this to just map to ascii
-        switch (x % base) {
-        case  0: strcat(buffer, "0"); break;
-        case  1: strcat(buffer, "1"); break;
-        case  2: strcat(buffer, "2"); break;
-        case  3: strcat(buffer, "3"); break;
-        case  4: strcat(buffer, "4"); break;
-        case  5: strcat(buffer, "5"); break;
-        case  6: strcat(buffer, "6"); break;
-        case  7: strcat(buffer, "7"); break;
-        case  8: strcat(buffer, "8"); break;
-        case  9: strcat(buffer, "9"); break;
-        case 10: strcat(buffer, "a"); break;
-        case 11: strcat(buffer, "b"); break;
-        case 12: strcat(buffer, "c"); break;
-        case 13: strcat(buffer, "d"); break;
-        case 14: strcat(buffer, "e"); break;
-        case 15: strcat(buffer, "f"); break;
-        }
+        int i = x % base;
+        size_t len = strlen(buffer);
+        buffer[len] = i < 10 ? i + '0' : (i - 10) + 'a';
+        buffer[++len] = '\0';
+
         x = x / base;                
     }
 

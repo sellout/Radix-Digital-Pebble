@@ -22,6 +22,8 @@ TextLayer year_layer[NUM_COLUMNS];
 TextLayer day_layer[NUM_COLUMNS];
 TextLayer subday_layer[NUM_COLUMNS];
 
+Layer radix_layer;
+
 char year_str[NUM_COLUMNS][2];
 char day_str[NUM_COLUMNS][2];
 char subday_str[NUM_COLUMNS][2];
@@ -33,6 +35,25 @@ PblTm *now;
 int prev_year;
 int prev_day;
 int prev_subday;
+
+int text_offset = 10;
+int zero_width = 30; // space for each column, probably "0", a commonly-occuring wide character
+int w_width = 36; // width of the widest character, probably "w"
+int width_offset = 3; // (w_width - zero_width) / 2;
+
+// This function finds the two factors closest to the square root, these are the
+// factors that would be closest to a square if drawn on a cartesian plane. EG,
+// 10 => 2 & 5, 12 => 3 & 4, 16 => 4 & 4
+void find_central_factors(int number, int *factor1, int *factor2) {
+    int second = number;
+    for (int first = 1; first <= second; ++first) {
+        second = number / first;
+        if (first <= second && first * second == number) {
+            *factor1 = first;
+            *factor2 = second;
+        }
+    }
+}
 
 char digit_to_radix_char(unsigned int base, int digit) {
     if (digit < 10) 
@@ -60,17 +81,17 @@ int int_to_base_string(unsigned int base, int x, char str[][2], TextLayer *layer
 void draw_year(TextLayer *me) {
     int year = now->tm_year + 1900;
     if (year != prev_year) {
-        int_to_base_string(year_base, year, year_str, me, 3, false);
+    int_to_base_string(year_base, year, year_str, me, 3, false);
         prev_year = year;
-    }
+}
 }
 
 void draw_day(TextLayer *me, int day_offset) {
     int day = now->tm_yday + day_offset;
     if (day != prev_day) {
-        int_to_base_string(day_base, day, day_str, me, 2, false);
+    int_to_base_string(day_base, day, day_str, me, 2, false);
         prev_day = day;
-    }
+}
 }
 
 unsigned int ticks_in_day;
@@ -90,9 +111,9 @@ int draw_subday(TextLayer *me) {
     }
     int subday = (seconds_into_day * ticks_in_day) / (1 * DAYS);
     if (subday != prev_subday) {
-        int_to_base_string(subday_base, subday, subday_str, subday_layer, 3, true);
+    int_to_base_string(subday_base, subday, subday_str, subday_layer, 3, true);
         prev_subday = subday;
-    }
+}
 
     return day_offset;
 }
@@ -115,6 +136,32 @@ static void update_clock (void) {
     draw_year(year_layer);
 }
 
+int max_dot_radius(int count, int width) {
+    return width / (3 * count - 1);
+}
+
+int unary_radix_dimension(int count, int radius) {
+    return (3 * count - 1) * radius;
+}
+
+void draw_unary_radix(struct Layer *layer, GContext *ctx) {
+    int a, b;
+    find_central_factors(day_base, &a, &b);
+    int radius = max_dot_radius(b, zero_width);
+    graphics_context_set_fill_color(ctx, GColorWhite);
+    graphics_context_set_stroke_color(ctx, GColorWhite);
+    for (int i = 0,
+             y = (layer->bounds.size.h - unary_radix_dimension(a, radius)) * 2 / 3;
+         i < a;
+         ++i, y += 3 * radius) {
+        for (int j = 0,
+                 x = (layer->bounds.size.w - unary_radix_dimension(b, radius)) / 2;
+             j < b;
+             ++j, x += 3 * radius) {
+            graphics_fill_circle(ctx, GPoint(x, y), radius);
+        }
+    }
+}
 
 void handle_init(AppContextRef ctx) {
     window_init(&window, "Radix Digital");
@@ -127,12 +174,7 @@ void handle_init(AppContextRef ctx) {
 
     text_layer_init(&blank_layer, GRect(0, 0, r.size.w, section_height));
     text_layer_set_background_color(&blank_layer, GColorWhite);
-    layer_add_child (&window.layer, &blank_layer.layer);
-
-    int text_offset = 10;
-    int zero_width = 30; // space for each column, probably "0", a commonly-occuring wide character
-    int w_width = 36; // width of the widest character, probably "w"
-    int width_offset = (w_width - zero_width) / 2;
+    layer_add_child(&window.layer, &blank_layer.layer);
 
     for (size_t i = 0; i < NUM_COLUMNS; ++i) {
         init_time_layer(&year_layer[i],
@@ -150,19 +192,28 @@ void handle_init(AppContextRef ctx) {
                         true);
     }
 
+    layer_init(&radix_layer, day_layer[3].layer.frame);
+    layer_add_child(&window.layer, &radix_layer);
+
     switch (radix_point_style) {
     case DOT:
         snprintf(radix_str, 5, ".");
+        text_layer_set_text(&day_layer[3], radix_str);
         break;
+    case UNARY:
+        if (day_base == subday_base) {
+            layer_set_update_proc(&radix_layer, draw_unary_radix);
+            break;
+        } // else fall-through
     case MAX_DIGIT:
-        text_layer_set_font(&day_layer[3], fonts_load_custom_font(resource_get_handle(RESOURCE_ID_13)));
         snprintf(radix_str, 5, "\n\n\n%c",
                  day_base == subday_base
                  ? digit_to_radix_char(day_base, day_base - 1)
                  : '?');
+        text_layer_set_font(&day_layer[3], fonts_load_custom_font(resource_get_handle(RESOURCE_ID_13)));
+        text_layer_set_text(&day_layer[3], radix_str);
         break;
     }
-    text_layer_set_text(&day_layer[3], radix_str);
 
     if (use_local_solar_time) init_LSP(-834577844);
 

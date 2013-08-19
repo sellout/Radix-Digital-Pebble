@@ -12,12 +12,13 @@ unsigned int const subday_base = 12;
 
 enum radix_point_style {
     DOT,      // show the traditional dot
+    UNARY,    // show a dot grid, where the number of dots = the base
     MAX_DIGIT // show a small version of the highest digit, EG, 1, 7, 9, b, and
               // f for binary, octal, decimal, dozenal, and hexidecimal.
               // Displays '?' if the bases for day and subday are not the same.
 };
 
-enum radix_point_style const radix_point_style = MAX_DIGIT;
+enum radix_point_style const radix_point_style = UNARY;
 
 bool use_local_solar_time = true;
 

@@ -22,5 +22,7 @@ enum radix_point_style const radix_point_style = UNARY;
 
 bool use_local_solar_time = true;
 
+bool show_utc = true;
+
 // when using base 12, this displays t(en) and e(leven) in lieu of a and b.
 bool use_alternative_dozenal_digits = true;

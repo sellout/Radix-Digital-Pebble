@@ -48,12 +48,12 @@ int int_to_base_string(unsigned int base, int x, char str[][2], TextLayer *layer
 
 void draw_year(TextLayer *me) {
     int year = now->tm_year + 1900;
-    int_to_base_string(base, year, year_str, me, 3, false);
+    int_to_base_string(year_base, year, year_str, me, 3, false);
 }
 
 void draw_day(TextLayer *me) {
     int day = now->tm_yday;
-    int_to_base_string(base, day, day_str, me, 2, false);
+    int_to_base_string(day_base, day, day_str, me, 2, false);
 }
 
 unsigned int const seconds_in_day = 86400;
@@ -62,7 +62,7 @@ unsigned int ticks_in_day;
 void draw_subday(TextLayer *me) {
     unsigned int seconds_into_day = ((now->tm_hour * 60 + now->tm_min) * 60 + now->tm_sec);
     unsigned int subday = (seconds_into_day * ticks_in_day) / seconds_in_day;
-    int_to_base_string(base, subday, subday_str, subday_layer, 3, true);
+    int_to_base_string(subday_base, subday, subday_str, subday_layer, 3, true);
 }
 
 void init_time_layer(TextLayer *layer, GRect frame, bool dark) {
@@ -74,6 +74,13 @@ void init_time_layer(TextLayer *layer, GRect frame, bool dark) {
     text_layer_set_text_color(layer, dark ? GColorWhite : GColorBlack);
     layer_add_child (&window.layer, &layer->layer);
 }
+
+static void update_clock (void) {
+    draw_year(year_layer);
+    draw_day(day_layer);
+    draw_subday(subday_layer);
+}
+
 
 void handle_init(AppContextRef ctx) {
     window_init(&window, "Radix Digital");
@@ -113,21 +120,28 @@ void handle_init(AppContextRef ctx) {
         break;
     case MAX_DIGIT:
         text_layer_set_font(&day_layer[3], fonts_load_custom_font(resource_get_handle(RESOURCE_ID_13)));
-        snprintf(radix_str, 5, "\n\n\n%c", digit_to_radix_char(base, base - 1));
+        snprintf(radix_str, 5, "\n\n\n%c",
+                 day_base == subday_base
+                 ? digit_to_radix_char(day_base, day_base - 1)
+                 : '?');
         break;
     }
     text_layer_set_text(&day_layer[3], radix_str);
+
+    // draw immediately, so we don’t start with a blank face.
+    PblTm right_now;
+    now = &right_now;
+    get_time(now);
+    update_clock();
 }
 
 static void handle_second_tick (AppContextRef ctx, PebbleTickEvent *t) {
     now = t->tick_time;
-    draw_year(year_layer);
-    draw_day(day_layer);
-    draw_subday(subday_layer);
+    update_clock();
 }
 
 void pbl_main(void *params) {
-    ticks_in_day = base * base * base * base;
+    ticks_in_day = subday_base * subday_base * subday_base * subday_base;
 
     PebbleAppHandlers handlers = {
         .init_handler = &handle_init,

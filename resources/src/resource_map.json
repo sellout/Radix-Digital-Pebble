@@ -6,6 +6,11 @@
 	    "type":"font",
 	    "defName":"51",
 	    "file":"Hoefler_Text.ttc"
+	   },
+	   {
+	    "type":"font",
+	    "defName":"13",
+	    "file":"Hoefler_Text.ttc"
 	   }
 	  ]
 }

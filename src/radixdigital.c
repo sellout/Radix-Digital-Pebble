@@ -24,13 +24,17 @@ TextLayer subday_layer[NUM_COLUMNS];
 char year_str[NUM_COLUMNS][2];
 char day_str[NUM_COLUMNS][2];
 char subday_str[NUM_COLUMNS][2];
+char radix_str[5];
 
 PblTm *now;
 
+char digit_to_radix_char(unsigned int base, int digit) {
+    return (char)(digit < 10 ? digit + '0' : (digit - 10) + 'a');
+}
+
 int int_to_base_string(unsigned int base, int x, char str[][2], TextLayer *layer, int last_index, bool pad) {
     for (; x > 0; x /= base, --last_index) {
-        unsigned int i = x % base;
-        str[last_index][0] = (char)(i < 10 ? i + '0' : (i - 10) + 'a');
+        str[last_index][0] = digit_to_radix_char(base, x % base);
         str[last_index][1] = '\0';
         text_layer_set_text(&layer[last_index], str[last_index]);
     }
@@ -86,7 +90,7 @@ void handle_init(AppContextRef ctx) {
 
     int text_offset = 10;
     int zero_width = 30;
-    
+
     for (size_t i = 0; i < NUM_COLUMNS; ++i) {
         init_time_layer(&year_layer[i],
                         GRect(r.size.w - zero_width * (4 - i), - text_offset, zero_width, section_height + text_offset),
@@ -102,8 +106,17 @@ void handle_init(AppContextRef ctx) {
                         GRect(r.size.w - zero_width * (4 - i), section_height * 2 - text_offset, zero_width, section_height + text_offset),
                         true);
     }
-    
-    text_layer_set_text(&day_layer[3], ".");
+
+    switch (radix_point_style) {
+    case DOT:
+        snprintf(radix_str, 5, ".");
+        break;
+    case MAX_DIGIT:
+        text_layer_set_font(&day_layer[3], fonts_load_custom_font(resource_get_handle(RESOURCE_ID_13)));
+        snprintf(radix_str, 5, "\n\n\n%c", digit_to_radix_char(base, base - 1));
+        break;
+    }
+    text_layer_set_text(&day_layer[3], radix_str);
 }
 
 static void handle_second_tick (AppContextRef ctx, PebbleTickEvent *t) {

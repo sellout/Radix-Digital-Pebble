@@ -28,6 +28,11 @@ char radix_str[5];
 
 PblTm *now;
 
+// keep these around so we can avoid redrawing when possible
+int prev_year;
+int prev_day;
+int prev_subday;
+
 char digit_to_radix_char(unsigned int base, int digit) {
     return (char)(digit < 10 ? digit + '0' : (digit - 10) + 'a');
 }
@@ -48,12 +53,18 @@ int int_to_base_string(unsigned int base, int x, char str[][2], TextLayer *layer
 
 void draw_year(TextLayer *me) {
     int year = now->tm_year + 1900;
-    int_to_base_string(year_base, year, year_str, me, 3, false);
+    if (year != prev_year) {
+        int_to_base_string(year_base, year, year_str, me, 3, false);
+        prev_year = year;
+    }
 }
 
 void draw_day(TextLayer *me) {
     int day = now->tm_yday;
-    int_to_base_string(day_base, day, day_str, me, 2, false);
+    if (day != prev_day) {
+        int_to_base_string(day_base, day, day_str, me, 2, false);
+        prev_day = day;
+    }
 }
 
 unsigned int const seconds_in_day = 86400;
@@ -61,8 +72,11 @@ unsigned int ticks_in_day;
 
 void draw_subday(TextLayer *me) {
     unsigned int seconds_into_day = ((now->tm_hour * 60 + now->tm_min) * 60 + now->tm_sec);
-    unsigned int subday = (seconds_into_day * ticks_in_day) / seconds_in_day;
-    int_to_base_string(subday_base, subday, subday_str, subday_layer, 3, true);
+    int subday = (seconds_into_day * ticks_in_day) / seconds_in_day;
+    if (subday != prev_subday) {
+        int_to_base_string(subday_base, subday, subday_str, subday_layer, 3, true);
+        prev_subday = subday;
+    }
 }
 
 void init_time_layer(TextLayer *layer, GRect frame, bool dark) {

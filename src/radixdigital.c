@@ -110,21 +110,23 @@ void handle_init(AppContextRef ctx) {
     layer_add_child (&window.layer, &blank_layer.layer);
 
     int text_offset = 10;
-    int zero_width = 30;
+    int zero_width = 30; // space for each column, probably "0", a commonly-occuring wide character
+    int w_width = 36; // width of the widest character, probably "w"
+    int width_offset = (w_width - zero_width) / 2;
 
     for (size_t i = 0; i < NUM_COLUMNS; ++i) {
         init_time_layer(&year_layer[i],
-                        GRect(r.size.w - zero_width * (4 - i), - text_offset, zero_width, section_height + text_offset),
+                        GRect(r.size.w - zero_width * (4 - i) - width_offset, - text_offset, w_width, section_height + text_offset),
                         false);
     }
     for (size_t i = 0; i < NUM_COLUMNS; ++i) {
         init_time_layer(&day_layer[i],
-                        GRect(r.size.w - zero_width * (4 - i), section_height - text_offset, zero_width, section_height + text_offset),
+                        GRect(r.size.w - zero_width * (4 - i) - width_offset, section_height - text_offset, w_width, section_height + text_offset),
                         true);
     }
     for (size_t i = 0; i < NUM_COLUMNS; ++i) {
         init_time_layer(&subday_layer[i],
-                        GRect(r.size.w - zero_width * (4 - i), section_height * 2 - text_offset, zero_width, section_height + text_offset),
+                        GRect(r.size.w - zero_width * (4 - i) - width_offset, section_height * 2 - text_offset, w_width, section_height + text_offset),
                         true);
     }
 

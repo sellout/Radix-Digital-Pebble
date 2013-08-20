@@ -18,3 +18,5 @@ enum radix_point_style {
 };
 
 enum radix_point_style const radix_point_style = MAX_DIGIT;
+
+bool use_local_solar_time = true;

@@ -4,10 +4,11 @@
 
 #include "string.h"
 
+#include "Local-Solar-Pebble.h"
 #include "options.h"
 
 #define MY_UUID { 0xB3, 0x10, 0x92, 0xE1, 0x1E, 0x84, 0x4F, 0x76, 0x8F, 0x59, 0x48, 0xA8, 0xDD, 0x66, 0x77, 0x7F }
-PBL_APP_INFO(MY_UUID,
+PBL_APP_INFO(HTTP_UUID,
              "Radix Digital", "Technomadic",
              0, 0, /* App version */
              DEFAULT_MENU_ICON,
@@ -59,24 +60,36 @@ void draw_year(TextLayer *me) {
     }
 }
 
-void draw_day(TextLayer *me) {
-    int day = now->tm_yday;
+void draw_day(TextLayer *me, int day_offset) {
+    int day = now->tm_yday + day_offset;
     if (day != prev_day) {
         int_to_base_string(day_base, day, day_str, me, 2, false);
         prev_day = day;
     }
 }
 
-unsigned int const seconds_in_day = 86400;
 unsigned int ticks_in_day;
 
-void draw_subday(TextLayer *me) {
-    unsigned int seconds_into_day = ((now->tm_hour * 60 + now->tm_min) * 60 + now->tm_sec);
-    int subday = (seconds_into_day * ticks_in_day) / seconds_in_day;
+int draw_subday(TextLayer *me) {
+    int seconds_into_day = ((now->tm_hour * 60 + now->tm_min) * 60 + now->tm_sec);
+    int day_offset = 0;
+    if (use_local_solar_time) {
+        seconds_into_day += current_lst_offset();
+        if (seconds_into_day < 0) {
+            seconds_into_day += 1 * DAYS;
+            day_offset = -1;
+        } else if (1 * DAYS <= seconds_into_day) {
+            seconds_into_day -= 1 * DAYS;
+            day_offset = 1;
+        }
+    }
+    int subday = (seconds_into_day * ticks_in_day) / (1 * DAYS);
     if (subday != prev_subday) {
         int_to_base_string(subday_base, subday, subday_str, subday_layer, 3, true);
         prev_subday = subday;
     }
+
+    return day_offset;
 }
 
 void init_time_layer(TextLayer *layer, GRect frame, bool dark) {
@@ -90,9 +103,11 @@ void init_time_layer(TextLayer *layer, GRect frame, bool dark) {
 }
 
 static void update_clock (void) {
+    if (use_local_solar_time) update_LSP();
+
+    int day_offset = draw_subday(subday_layer);
+    draw_day(day_layer, day_offset);
     draw_year(year_layer);
-    draw_day(day_layer);
-    draw_subday(subday_layer);
 }
 
 
@@ -143,6 +158,8 @@ void handle_init(AppContextRef ctx) {
         break;
     }
     text_layer_set_text(&day_layer[3], radix_str);
+
+    if (use_local_solar_time) init_LSP(-834577844);
 
     // draw immediately, so we don’t start with a blank face.
     PblTm right_now;

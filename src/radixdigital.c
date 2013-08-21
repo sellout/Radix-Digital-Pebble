@@ -26,20 +26,20 @@ struct clock {
     char year_str[NUM_COLUMNS][2];
     char day_str[NUM_COLUMNS][2];
     char subday_str[NUM_COLUMNS][2];
-    int offset_seconds;
+    // keep these around so we can avoid redrawing when possible
+    int prev_year;
+    int prev_day;
+    int prev_subday;
 };
 
-struct clock local_clock;
-struct clock utc_clock;
+struct clock primary_clock;
+struct clock secondary_clock;
 
 char radix_str[5];
 
-PblTm *now;
+bool require_http = false;
 
-// keep these around so we can avoid redrawing when possible
-int prev_year;
-int prev_day;
-int prev_subday;
+PblTm *now;
 
 char digit_to_radix_char(unsigned int base, int digit) {
     return (char)(digit < 10 ? digit + '0' : (digit - 10) + 'a');
@@ -61,28 +61,37 @@ int int_to_base_string(unsigned int base, int x, char str[][2], TextLayer *layer
 
 void draw_year(struct clock *me) {
     int year = now->tm_year + 1900;
-    int_to_base_string(year_base, year, me->year_str, me->year_layer, 3, false);
+    if (year != me->prev_year) {
+        int_to_base_string(year_base, year, me->year_str, me->year_layer, 3, false);
+        me->prev_year = year;
+    }
 }
 
-void draw_day(struct clock *me, int offset_day) {
-    int day = now->tm_yday + offset_day;
-    int_to_base_string(day_base, day, me->day_str, me->day_layer, 2, false);
+void draw_day(struct clock *me, int day_offset) {
+    int day = now->tm_yday + day_offset;
+    if (day != me->prev_day) {
+        int_to_base_string(day_base, day, me->day_str, me->day_layer, 2, false);
+        me->prev_day = day;
+    }
 }
 
 unsigned int ticks_in_day;
 
-int draw_subday(struct clock *me) {
+int draw_subday(struct clock *me, int second_offset) {
     int day_adjustment = 0;
-    int seconds_into_day = (now->tm_hour * 60 + now->tm_min) * 60 + now->tm_sec + me->offset_seconds;
+    int seconds_into_day = (now->tm_hour * 60 + now->tm_min) * 60 + now->tm_sec + second_offset;
     if (seconds_into_day < 0) {
-        seconds_into_day += seconds_in_day;
+        seconds_into_day += 1 * DAYS;
         day_adjustment = -1;
-    } else if (seconds_in_day <= seconds_into_day) {
-        seconds_into_day -= seconds_in_day;
+    } else if (1 * DAYS <= seconds_into_day) {
+        seconds_into_day -= 1 * DAYS;
         day_adjustment = 1;
     }
-    unsigned int subday = (seconds_into_day * ticks_in_day) / seconds_in_day;
-    int_to_base_string(subday_base, subday, me->subday_str, me->subday_layer, 3, true);
+    int subday = (seconds_into_day * ticks_in_day) / (1 * DAYS);
+    if (subday != me->prev_subday) {
+        int_to_base_string(subday_base, subday, me->subday_str, me->subday_layer, 3, true);
+        me->prev_subday = subday;
+    }
 
     return day_adjustment;
 }
@@ -97,16 +106,32 @@ void init_time_layer(TextLayer *layer, GRect frame, uint32_t font_resource, bool
 }
 
 static void update_clock (void) {
-    draw_subday(&local_clock);
-    draw_day(&local_clock, 0);
-    draw_year(&local_clock);
+    if (require_http && now->tm_sec == 0) update_LSP();
 
-    if (show_utc) {
-        int day_offset = draw_subday(&utc_clock);
-        draw_day(&utc_clock, day_offset);
+
+    if (primary_clock_display) {
+        int p_second_offset = 0;
+        switch (primary_clock_display) {
+        case SOLAR: p_second_offset = current_lst_offset(); break;
+        case UTC:   p_second_offset = current_utc_offset(); break;
+        default:    break;
+        }
+        int p_day_offset = draw_subday(&primary_clock, p_second_offset);
+        draw_day(&primary_clock, p_day_offset);
+        draw_year(&primary_clock);
+    }
+
+    if (secondary_clock_display) {
+        int s_second_offset = 0;
+        switch (primary_clock_display) {
+        case SOLAR: s_second_offset = current_lst_offset(); break;
+        case UTC:   s_second_offset = current_utc_offset(); break;
+        default:    break;
+        }
+        int s_day_offset = draw_subday(&secondary_clock, s_second_offset);
+        draw_day(&secondary_clock, s_day_offset);
     }
 }
-
 
 void handle_init(AppContextRef ctx) {
     window_init(&window, "Radix Digital");
@@ -122,63 +147,84 @@ void handle_init(AppContextRef ctx) {
     layer_add_child (&window.layer, &blank_layer.layer);
 
     int text_offset = 8;
-    int zero_width = 30;
+    int zero_width = 30; // space for each column, probably "0", a commonly-occuring wide character
+    int w_width = 36; // width of the widest character, probably "w"
+    int width_offset = (w_width - zero_width) / 2;
 
     for (size_t i = 0; i < NUM_COLUMNS; ++i) {
-        init_time_layer(&local_clock.year_layer[i],
-                        GRect(r.size.w - zero_width * (4 - i), - text_offset, zero_width, section_height + text_offset),
+        init_time_layer(&primary_clock.year_layer[i],
+                        GRect(r.size.w - zero_width * (4 - i) - width_offset, - text_offset, w_width, section_height + text_offset),
                         RESOURCE_ID_51,
                         false);
     }
     for (size_t i = 0; i < NUM_COLUMNS; ++i) {
-        init_time_layer(&local_clock.day_layer[i],
-                        GRect(r.size.w - zero_width * (4 - i), section_height - text_offset, zero_width, section_height + text_offset),
+        init_time_layer(&primary_clock.day_layer[i],
+                        GRect(r.size.w - zero_width * (4 - i) - width_offset, section_height - text_offset, w_width, section_height + text_offset),
                         RESOURCE_ID_51,
                         true);
     }
     for (size_t i = 0; i < NUM_COLUMNS; ++i) {
-        init_time_layer(&local_clock.subday_layer[i],
-                        GRect(r.size.w - zero_width * (4 - i), section_height * 2 - text_offset, zero_width, section_height + text_offset),
+        init_time_layer(&primary_clock.subday_layer[i],
+                        GRect(r.size.w - zero_width * (4 - i) - width_offset, section_height * 2 - text_offset, w_width, section_height + text_offset),
                         RESOURCE_ID_51,
                         true);
     }
 
-    switch (radix_point_style) {
-    case DOT:
-        snprintf(radix_str, 5, ".");
-        break;
-    case MAX_DIGIT:
-        text_layer_set_font(&local_clock.day_layer[3], fonts_load_custom_font(resource_get_handle(RESOURCE_ID_13)));
-        snprintf(radix_str, 5, "\n\n\n%c",
-                 day_base == subday_base
-                 ? digit_to_radix_char(day_base, day_base - 1)
-                 : '?');
-        break;
+    if (primary_clock_display) {
+        switch (radix_point_style) {
+        case DOT:
+            snprintf(radix_str, 5, ".");
+            break;
+        case MAX_DIGIT:
+            text_layer_set_font(&primary_clock.day_layer[3], fonts_load_custom_font(resource_get_handle(RESOURCE_ID_13)));
+            snprintf(radix_str, 5, "\n\n\n%c",
+                     day_base == subday_base
+                     ? digit_to_radix_char(day_base, day_base - 1)
+                     : '?');
+            break;
+        }
+        text_layer_set_text(&primary_clock.day_layer[3], radix_str);
     }
-    text_layer_set_text(&local_clock.day_layer[3], radix_str);
 
-    if (show_utc) {
+    if (secondary_clock_display) {
         int utc_section_height = section_height  / NUM_COLUMNS;
         int utc_text_offset = text_offset / NUM_COLUMNS;
         int utc_zero_width = r.size.w - zero_width * NUM_COLUMNS;
 
         for (size_t i = 0; i < NUM_COLUMNS; ++i) {
-            init_time_layer(&utc_clock.day_layer[i],
+            init_time_layer(&secondary_clock.day_layer[i],
                             GRect(0, section_height + utc_section_height * i - utc_text_offset,
                                   utc_zero_width, utc_section_height + utc_text_offset),
                             RESOURCE_ID_13,
                             true);
         }
         for (size_t i = 0; i < NUM_COLUMNS; ++i) {
-            init_time_layer(&utc_clock.subday_layer[i],
+            init_time_layer(&secondary_clock.subday_layer[i],
                             GRect(0, section_height * 2 + utc_section_height * i - utc_text_offset,
                                   utc_zero_width, utc_section_height + utc_text_offset),
                             RESOURCE_ID_13,
                             true);
         }
 
-        text_layer_set_text(&utc_clock.day_layer[3], ".");
+        text_layer_set_text(&secondary_clock.day_layer[3], ".");
     }
+
+    switch (primary_clock_display) {
+    case UTC:
+    case SOLAR:
+        require_http = true;
+        break;
+    default:
+        switch (secondary_clock_display) {
+        case UTC:
+        case SOLAR:
+            require_http = true;
+            break;
+        default: break;
+        }
+    }
+
+    if (require_http) init_LSP(-834577844);
 
     // draw immediately, so we don’t start with a blank face.
     PblTm right_now;

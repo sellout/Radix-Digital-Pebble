@@ -4,7 +4,7 @@
 
 int utc_offset = 0;
 
-float longitude;
+float longitude = 0;
 float longitude_threshold = 1;
 
 int lst_offset = 0;

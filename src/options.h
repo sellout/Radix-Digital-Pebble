@@ -20,9 +20,15 @@ enum radix_point_style {
 
 enum radix_point_style const radix_point_style = UNARY;
 
-bool use_local_solar_time = true;
+enum time_display {
+    NONE = 0, // don't display a clock
+    LOCAL,    // standard local time
+    SOLAR,    // local solar time, requires httpebble to fetch location
+    UTC       // like GMT, but cooler, requires httpebble to fetch offset
+};
 
-bool show_utc = true;
+enum time_display primary_clock_display = SOLAR;
+enum time_display secondary_clock_display = UTC;
 
 // when using base 12, this displays t(en) and e(leven) in lieu of a and b.
 bool use_alternative_dozenal_digits = true;

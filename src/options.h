@@ -20,3 +20,6 @@ enum radix_point_style {
 enum radix_point_style const radix_point_style = MAX_DIGIT;
 
 bool use_local_solar_time = true;
+
+// when using base 12, this displays t(en) and e(leven) in lieu of a and b.
+bool use_alternative_dozenal_digits = true;

@@ -35,7 +35,12 @@ int prev_day;
 int prev_subday;
 
 char digit_to_radix_char(unsigned int base, int digit) {
-    return (char)(digit < 10 ? digit + '0' : (digit - 10) + 'a');
+    if (digit < 10) 
+        return (char)digit + '0';
+    else if (use_alternative_dozenal_digits && base == 12)
+        return digit - 10 ? 'e' : 't';
+    else
+        return (char)(digit - 10) + 'a';
 }
 
 int int_to_base_string(unsigned int base, int x, char str[][2], TextLayer *layer, int last_index, bool pad) {

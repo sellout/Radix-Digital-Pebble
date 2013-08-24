@@ -64,9 +64,20 @@ void find_central_factors(int number, int *factor1, int *factor2) {
 char digit_to_radix_char(unsigned int base, int digit) {
     if (digit < 10) 
         return (char)digit + '0';
-    else if (use_alternative_dozenal_digits && base == 12)
+    else if (extended_numerals == SELECTIVE && base == 12)
         return digit - 10 ? 'e' : 't';
-    else
+    else if (extended_numerals == CREATIVE && base == 12)
+        return digit - 10 ? '#' : '*';
+    else if (extended_numerals == CREATIVE && base == 16) {
+        switch (digit) {
+        case 10: return '/';
+        case 11: return '\\';
+        case 12: return ':';
+        case 13: return '*';
+        case 14: return '?';
+        default: return '+';
+        }
+    } else
         return (char)(digit - 10) + 'a';
 }
 

@@ -31,5 +31,12 @@ enum time_display {
 enum time_display primary_clock_display = SOLAR;
 enum time_display secondary_clock_display = UTC;
 
-// when using base 12, this displays t(en) and e(leven) in lieu of a and b.
-bool use_alternative_dozenal_digits = true;
+// Which symbols to use for digits larger than 9. If the option isn't available
+// for a particular base, we fall back to SEQUENTIAL.
+enum extended_numerals {
+    SEQUENTIAL, // a, b, c, ...
+    SELECTIVE,  // t, e for base 12
+    CREATIVE    // *, # for base 12; \, /, :, *, ?, + for base 16
+};
+
+enum extended_numerals extended_numerals = SELECTIVE;

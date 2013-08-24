@@ -10,12 +10,13 @@ unsigned int const year_base = 12;
 unsigned int const day_base = 12;
 unsigned int const subday_base = 12;
 
+// How to display the radix point (the dot in 12.45). If the day and subday
+// bases don't match, we fall back to DOT.
 enum radix_point_style {
-    DOT,      // show the traditional dot
+    DOT,      // show the traditional dot (or semicolon for base 12)
     UNARY,    // show a dot grid, where the number of dots = the base
     MAX_DIGIT // show a small version of the highest digit, EG, 1, 7, 9, b, and
               // f for binary, octal, decimal, dozenal, and hexidecimal.
-              // Displays '?' if the bases for day and subday are not the same.
 };
 
 enum radix_point_style const radix_point_style = UNARY;

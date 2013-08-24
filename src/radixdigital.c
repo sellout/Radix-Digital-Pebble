@@ -221,21 +221,23 @@ void handle_init(AppContextRef ctx) {
 
     if (primary_clock_display) {
         switch (radix_point_style) {
-        case DOT:
-            snprintf(radix_str, 5, ".");
-            text_layer_set_text(&primary_clock.day_layer[3], radix_str);
-            break;
         case UNARY:
             if (day_base == subday_base) {
                 layer_set_update_proc(&radix_layer, draw_unary_radix);
                 break;
             } // else fall-through
         case MAX_DIGIT:
-            snprintf(radix_str, 5, "\n\n\n%c",
-                     day_base == subday_base
-                     ? digit_to_radix_char(day_base, day_base - 1)
-                     : '?');
-            text_layer_set_font(&primary_clock.day_layer[3], fonts_load_custom_font(resource_get_handle(RESOURCE_ID_13)));
+            if (day_base == subday_base) {
+                snprintf(radix_str, 5, "\n\n\n%c",
+                         digit_to_radix_char(day_base, day_base - 1));
+                text_layer_set_font(&primary_clock.day_layer[3],
+                                    fonts_load_custom_font(resource_get_handle(RESOURCE_ID_13)));
+                text_layer_set_text(&primary_clock.day_layer[3], radix_str);
+                break;
+            } // else fall-through
+        case DOT:
+            snprintf(radix_str, 5,
+                     day_base == 12 && subday_base == 12 ? ";" : ".");
             text_layer_set_text(&primary_clock.day_layer[3], radix_str);
             break;
         }

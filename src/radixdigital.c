@@ -142,7 +142,8 @@ void init_time_layer(TextLayer *layer, GRect frame, uint32_t font_resource, bool
 }
 
 static void update_clock (void) {
-    if (require_http && now->tm_sec == 0) update_LSP();
+    if (require_http && now->tm_sec ==  0) http_time_request();
+    if (require_http && now->tm_sec ==  5) http_location_request();
 
 
     if (primary_clock_display) {
@@ -159,9 +160,9 @@ static void update_clock (void) {
 
     if (secondary_clock_display) {
         int s_second_offset = 0;
-        switch (primary_clock_display) {
+        switch (secondary_clock_display) {
         case SOLAR: s_second_offset = current_lst_offset(); break;
-        case UTC:   s_second_offset = current_utc_offset(); break;
+        case UTC:   s_second_offset = - current_utc_offset(); break;
         default:    break;
         }
         int s_day_offset = draw_subday(&secondary_clock, s_second_offset);
@@ -313,7 +314,13 @@ void pbl_main(void *params) {
         .init_handler = &handle_init,
         .tick_info = {
             .tick_handler = &handle_second_tick,
-            .tick_units = SECOND_UNIT
+            .tick_units = SECOND_UNIT,
+        },
+        .messaging_info = {
+            .buffer_sizes = {
+                .inbound = 124,
+                .outbound = 256,
+            }
         }
     };
     app_event_loop(params, &handlers);

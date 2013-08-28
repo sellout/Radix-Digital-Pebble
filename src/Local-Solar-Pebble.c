@@ -18,10 +18,13 @@ have_time(int32_t new_utc_offset,
     if (utc_offset != new_utc_offset) {
         utc_offset = new_utc_offset;
     }
+    http_location_request();
 }
 
 int calculate_solar_offset(int longitude) {
-    return (longitude + 180) * DAYS / 360 - utc_offset;
+    // FIXME: this isn't correct. We need to take into account the equation of
+    //        time.
+    return longitude * DAYS / 360 - utc_offset;
 }
 
 static void
@@ -29,7 +32,7 @@ have_location(float new_latitude,
               float new_longitude,
               float altitude,
               float accuracy,
-              void* context) {
+              void *context) {
     if (abs(longitude - new_longitude) > longitude_threshold) {
         longitude = new_longitude;
         lst_offset = calculate_solar_offset(longitude);
@@ -45,7 +48,6 @@ void init_LSP(int32_t id) {
 }
 
 void update_LSP(void) {
-    http_location_request();
     http_time_request();
 }
 

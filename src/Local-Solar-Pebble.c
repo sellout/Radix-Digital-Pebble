@@ -8,16 +8,18 @@ float longitude = 0;
 float longitude_threshold = 1;
 
 int lst_offset = 0;
+bool dst = false;
 
 static void
 have_time(int32_t new_utc_offset,
-          bool is_dst,
-          uint32_t unixtime,
-          char const *tz_name,
-          void *context) {
-    if (utc_offset != new_utc_offset) {
-        utc_offset = new_utc_offset;
-    }
+             bool is_dst,
+         uint32_t unixtime,
+      char const *tz_name,
+            void *context) {
+    failed = 0;
+
+    utc_offset = new_utc_offset;
+    dst = is_dst;
     http_location_request();
 }
 
@@ -53,3 +55,4 @@ void update_LSP(void) {
 
 int current_utc_offset(void) { return utc_offset; }
 int current_lst_offset(void) { return lst_offset; }
+bool is_dst(void) { return dst; }

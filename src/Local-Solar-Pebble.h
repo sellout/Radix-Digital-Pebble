@@ -20,3 +20,5 @@ int current_utc_offset();
 
 // returns the seconds difference between time zone time and local solar time
 int current_lst_offset();
+
+bool is_dst();

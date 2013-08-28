@@ -156,6 +156,11 @@ static void update_clock (void) {
         int p_day_offset = draw_subday(&primary_clock, p_second_offset);
         draw_day(&primary_clock, p_day_offset);
         draw_year(&primary_clock);
+
+        if (radix_point_style == DST) {
+            text_layer_set_text(&primary_clock.day_layer[3],
+                                is_dst() ? "\n\n\nDST" : "\n\n\nstd");
+        }
     }
 
     if (secondary_clock_display) {
@@ -251,6 +256,10 @@ void handle_init(AppContextRef ctx) {
             snprintf(radix_str, 5,
                      day_base == 12 && subday_base == 12 ? ";" : ".");
             text_layer_set_text(&primary_clock.day_layer[3], radix_str);
+            break;
+        case DST:
+            text_layer_set_font(&primary_clock.day_layer[3],
+                                fonts_load_custom_font(resource_get_handle(RESOURCE_ID_13)));
             break;
         }
     }

@@ -13,13 +13,15 @@ unsigned int const subday_base = 12;
 // How to display the radix point (the dot in 12.45). If the day and subday
 // bases don't match, we fall back to DOT.
 enum radix_point_style {
-    DOT,      // show the traditional dot (or semicolon for base 12)
-    UNARY,    // show a dot grid, where the number of dots = the base
-    MAX_DIGIT // show a small version of the highest digit, EG, 1, 7, 9, b, and
-              // f for binary, octal, decimal, dozenal, and hexidecimal.
+    DOT,       // show the traditional dot (or semicolon for base 12)
+    UNARY,     // show a dot grid, where the number of dots = the base
+    MAX_DIGIT, // show a small version of the highest digit, EG, 1, 7, 9, b, and
+               // f for binary, octal, decimal, dozenal, and hexidecimal.
+    DST        // shows either "dst" or "std". This can be useful with solar
+               // time, because it indicates a different offset from local time.
 };
 
-enum radix_point_style const radix_point_style = UNARY;
+enum radix_point_style const radix_point_style = DST;
 
 enum time_display {
     NONE = 0, // don't display a clock

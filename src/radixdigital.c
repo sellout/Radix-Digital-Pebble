@@ -40,8 +40,6 @@ char radix_str[5];
 
 bool require_http = false;
 
-PblTm *now;
-
 int text_offset = 8;
 int zero_width = 30; // space for each column, probably "0", a commonly-occuring wide character
 int w_width = 36; // width of the widest character, probably "w"
@@ -95,7 +93,7 @@ int int_to_base_string(unsigned int base, int x, char str[][2], TextLayer *layer
     return 0;
 }
 
-void draw_year(struct clock *me) {
+void draw_year(PblTm const *now, struct clock *me) {
     int year = now->tm_year + 1900;
     if (year != me->prev_year) {
         int_to_base_string(year_base, year, me->year_str, me->year_layer, 3, false);
@@ -103,7 +101,7 @@ void draw_year(struct clock *me) {
     }
 }
 
-void draw_day(struct clock *me, int day_offset) {
+void draw_day(PblTm const *now, struct clock *me, int day_offset) {
     int day = now->tm_yday + day_offset;
     if (day != me->prev_day) {
         int_to_base_string(day_base, day, me->day_str, me->day_layer, 2, false);
@@ -112,8 +110,10 @@ void draw_day(struct clock *me, int day_offset) {
 }
 
 unsigned int ticks_in_day;
+uint32_t ms_between_updates;
+uint32_t const time_between_http_updates = RATIONAL_DAY / 12 * 12 * 12;
 
-int draw_subday(struct clock *me, int second_offset) {
+int draw_subday(PblTm const *now, struct clock *me, int second_offset) {
     int day_adjustment = 0;
     int seconds_into_day = (now->tm_hour * 60 + now->tm_min) * 60 + now->tm_sec + second_offset;
     if (seconds_into_day < 0) {
@@ -141,10 +141,8 @@ void init_time_layer(TextLayer *layer, GRect frame, uint32_t font_resource, bool
     layer_add_child (&window.layer, &layer->layer);
 }
 
-static void update_clock (void) {
-    if (require_http && now->tm_sec ==  0) http_time_request();
-    if (require_http && now->tm_sec ==  5) http_location_request();
-
+static void update_clock (PblTm const *now) {
+    if (require_http) http_time_request();
 
     if (primary_clock_display) {
         int p_second_offset = 0;
@@ -153,9 +151,9 @@ static void update_clock (void) {
         case UTC:   p_second_offset = current_utc_offset(); break;
         default:    break;
         }
-        int p_day_offset = draw_subday(&primary_clock, p_second_offset);
-        draw_day(&primary_clock, p_day_offset);
-        draw_year(&primary_clock);
+        int p_day_offset = draw_subday(now, &primary_clock, p_second_offset);
+        draw_day(now, &primary_clock, p_day_offset);
+        draw_year(now, &primary_clock);
 
         if (radix_point_style == DST) {
             text_layer_set_text(&primary_clock.day_layer[3],
@@ -170,8 +168,8 @@ static void update_clock (void) {
         case UTC:   s_second_offset = - current_utc_offset(); break;
         default:    break;
         }
-        int s_day_offset = draw_subday(&secondary_clock, s_second_offset);
-        draw_day(&secondary_clock, s_day_offset);
+        int s_day_offset = draw_subday(now, &secondary_clock, s_second_offset);
+        draw_day(now, &secondary_clock, s_day_offset);
     }
 }
 int max_dot_radius(int count, int width) {
@@ -305,15 +303,22 @@ void handle_init(AppContextRef ctx) {
     if (require_http) init_LSP(-834577844);
 
     // draw immediately, so we don’t start with a blank face.
-    PblTm right_now;
-    now = &right_now;
-    get_time(now);
-    update_clock();
+    PblTm now;
+    get_time(&now);
+    update_clock(&now);
+    app_timer_send_event(ctx, ms_between_updates, 0);
 }
 
 void handle_second_tick (AppContextRef ctx, PebbleTickEvent *t) {
-    now = t->tick_time;
-    update_clock();
+    update_clock(t->tick_time);
+}
+
+void
+handle_timer (AppContextRef app_ctx, AppTimerHandle handle, uint32_t cookie) {
+    PblTm now;
+    get_time(&now);
+    update_clock(&now);
+    app_timer_send_event(app_ctx, ms_between_updates, 0);
 }
 
 void pbl_main(void *params) {
@@ -321,10 +326,11 @@ void pbl_main(void *params) {
 
     PebbleAppHandlers handlers = {
         .init_handler = &handle_init,
-        .tick_info = {
-            .tick_handler = &handle_second_tick,
-            .tick_units = SECOND_UNIT,
-        },
+        .timer_handler = &handle_timer,
+        /* .tick_info = { */
+        /*     .tick_handler = &handle_second_tick, */
+        /*     .tick_units = SECOND_UNIT, */
+        /* }, */
         .messaging_info = {
             .buffer_sizes = {
                 .inbound = 124,

@@ -9,6 +9,10 @@
 #define HOURS   (60 * MINUTES)
 #define DAYS    (24 * HOURS)
 
+// This gives us the maximum precision for fractions of a day
+#define RATIONAL_DAY INT_MAX
+#define SECONDS_PER_TICK (RATIONAL_DAY / DAYS)
+
 // call this to set up the HTTP request hooks
 void init_LSP(int32_t id);
 

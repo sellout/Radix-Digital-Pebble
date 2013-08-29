@@ -16,8 +16,6 @@ have_time(int32_t new_utc_offset,
          uint32_t unixtime,
       char const *tz_name,
             void *context) {
-    failed = 0;
-
     utc_offset = new_utc_offset;
     dst = is_dst;
     http_location_request();
